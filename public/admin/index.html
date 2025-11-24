@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Municipal – AsuAlerta</title>
+  <style>
+    body{font-family:Helvetica,Arial,sans-serif;background:#d32f2f;color:white;text-align:center;padding:2rem 1rem}
+    h1{font-size:2rem;margin-bottom:1.5rem}
+    input,button{padding:1rem;margin:1rem auto;width:90%;max-width:400px;border:none;border-radius:12px;font-size:1.1rem}
+    button{background:#000;color:white;font-weight:900;cursor:pointer}
+    #panel{display:none;background:white;color:black;margin:2rem 1rem 4rem;border-radius:16px;padding:1rem;overflow:auto;max-height:85vh}
+    .report{background:#f9f9f9;margin:1rem;padding:1.5rem;border-radius:14px;border-left:8px solid #d32f2f;box-shadow:0 4px 10px rgba(0,0,0,0.1)}
+    .solucionado{border-left-color:#00c853 !important;background:#e8f5e8}
+    .report h3{color:#d32f2f;margin:0 0 0.8rem;font-size:1.4rem}
+    .info{font-size:1rem;line-height:1.6;margin:0.6rem 0}
+    .fotos{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:1rem 0}
+    .fotos img{width:100%;border-radius:10px;border:3px solid #d32f2f}
+    .btn-solucionado{background:#00c853;color:white;padding:12px 24px;border:none;border-radius:50px;font-weight:900;font-size:1rem;cursor:pointer;margin-top:1rem}
+    .ya-solucionado{background:#666;cursor:not-allowed}
+    small{color:#666;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <h1>PANEL MUNICIPAL</h1>
+  <input type="password" id="pass" placeholder="Contraseña">
+  <button onclick="login()">INGRESAR</button>
+
+  <div id="panel">
+    <h2 style="color:#d32f2f;padding:1rem">Reportes recibidos</h2>
+    <div id="lista">Cargando reportes…</div>
+  </div>
+
+  <script type="module">
+    const SUPABASE_URL = 'https://odcuxydylxssslgiqxpi.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY3V4eWR5bHhzc3NsZ2lxeHBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MjE3MDQsImV4cCI6MjA3OTQ5NzcwNH0.2ZE8WDQ5pgJjaVE9RicMiEk8oFbokENgK5r4LfTkSNM';
+
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function login() {
+      const pass = document.getElementById('pass').value;
+      if (pass === 'muniasu2025') { // ← CAMBIÁ ESTA CONTRASEÑA A LO QUE QUIERAS
+        document.getElementById('panel').style.display = 'block';
+        cargar();
+        setInterval(cargar, 15000);
+      } else {
+        alert('Contraseña incorrecta');
+      }
+    }
+
+    async function cargar() {
+      const { data } = await supabase.from('reportes').select().order('created_at', {ascending:false});
+      
+      const lista = data.map(r => {
+        const fotos = Array.isArray(r.fotos_url) ? r.fotos_url : [];
+        const fecha = new Date(r.created_at).toLocaleString('es-PY');
+
+        return `
+          <div class="report ${r.estado==='solucionado'?'solucionado':''}">
+            <h3>${r.categoria.toUpperCase()} ${r.estado==='solucionado'?'(SOLUCIONADO)':''}</h3>
+            <div class="info"><b>${r.nombre}</b> – ${r.celular}</div>
+            <div class="info">${r.detalle || 'Sin descripción'}</div>
+            <small>${fecha}</small>
+            ${fotos.length > 0 ? `
+              <div class="fotos">
+                ${fotos.map(url => `<img src="${url}" alt="Foto del reporte">`).join('')}
+              </div>
+            ` : '<p><i>Sin fotos</i></p>'}
+            ${r.estado !== 'solucionado' ? 
+              `<button class="btn-solucionado" onclick="marcar(${r.id})">MARCAR COMO SOLUCIONADO</button>` 
+              : '<button class="btn-solucionado ya-solucionado" disabled>YA SOLUCIONADO</button>'
+            }
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('lista').innerHTML = lista || '<p style="padding:2rem;color:#666">¡No hay reportes pendientes!</p>';
+    }
+
+    window.marcar = async (id) => {
+      if (confirm('¿Confirmar que este reporte ya fue solucionado?')) {
+        await supabase.from('reportes').update({estado:'solucionado'}).eq('id',id);
+        cargar();
+      }
+    };
+  </script>
+</body>
+</html>
